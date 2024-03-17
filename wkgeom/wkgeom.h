@@ -9,11 +9,44 @@
 
 namespace wk ::wkgeom {
 
-template <typename T>
+template <typename T, int DIM>
+class Geometry;
+
+template <typename T, int DIM>
+class Point;
+
+template <typename T, int DIM>
+class LineString;
+
+template <typename T, int DIM>
+class LineRing;
+
+template <typename T, int DIM>
+class Polygon;
+
+template <typename T, int DIM>
 class Box;
 
 template <typename T>
-class Geometry {
+class Geometry<T, 2>;
+
+template <typename T>
+class Point<T, 2>;
+
+template <typename T>
+class LineString<T, 2>;
+
+template <typename T>
+class LineRing<T, 2>;
+
+template <typename T>
+class Polygon<T, 2>;
+
+template <typename T>
+class Box<T, 2>;
+
+template <typename T>
+class Geometry<T, 2> {
 protected:
   int srid = 0;
   bool hasm = false;
@@ -32,17 +65,17 @@ public:
   bool getHasM() const { return this->hasm; }
   void setHasM(bool hasm) { this->hasm = hasm; }
   bool empty() const { return this->empty_; }
-  virtual Box<T>* envelope() = 0;
+  virtual Box<T, 2>* envelope() = 0;
   virtual std::string toWKT() = 0;
 };
 
 template <typename T>
-class Point : public Geometry<T> {
+class Point<T, 2> : public Geometry<T, 2> {
 public:
   Point() : x(0), y(0), m(0) {}
   Point(T x, T y) : x(x), y(y), m(0) {}
   Point(T x, T y, T m) : x(x), y(y), m(m) {}
-  Point(const Point<T>& p) : Geometry<T>(p) { setXYM(p.getX(), p.getY(), p.getM()); }
+  Point(const Point<T, 2>& p) : Geometry<T, 2>(p) { setXYM(p.getX(), p.getY(), p.getM()); }
   ~Point() {}
   T getX() const { return this->x; }
   T getY() const { return this->y; }
@@ -68,7 +101,7 @@ public:
     this->setSrid(0);
   }
 
-  virtual Box<T>* envelope() { return new Box(this->x, this->y, this->x, this->y); }
+  virtual Box<T, 2>* envelope() { return new Box<T, 2>(this->x, this->y, this->x, this->y); }
   virtual std::string toWKT() {
     std::string s;
     if (this->getHasM()) {
@@ -80,13 +113,13 @@ public:
   }
 
   template <typename U>
-  friend std::ostream& operator<<(std::ostream& os, const Point<U>& p) {
+  friend std::ostream& operator<<(std::ostream& os, const Point<U, 2>& p) {
     os << p.x << " " << p.y << " " << p.m;
     return os;
   }
 
   template <typename U>
-  friend bool operator==(const Point<U>& p1, const Point<U>& p2) {
+  friend bool operator==(const Point<U, 2>& p1, const Point<U, 2>& p2) {
     bool b1 = utils::dbl_equal(p1.getX(), p2.getX());
     bool b2 = utils::dbl_equal(p1.getY(), p2.getY());
     bool b3 = utils::dbl_equal(p1.getM(), p2.getM());
@@ -100,9 +133,9 @@ private:
 };
 
 template <typename T>
-class LineString : public Geometry<T> {
+class LineString<T, 2> : public Geometry<T, 2> {
 protected:
-  std::vector<Point<T>> points;
+  std::vector<Point<T, 2>> points;
 
   std::string toWKTWithTag(std::string tag) {
     std::ostringstream oss;
@@ -120,8 +153,8 @@ protected:
   }
 
 public:
-  LineString() : Geometry<T>() {}
-  LineString(std::vector<Point<T>>& points) : points(points) {
+  LineString() : Geometry<T, 2>() {}
+  LineString(std::vector<Point<T, 2>>& points) : points(points) {
     if (!points.empty()) {
       this->setHasM(this->firstPoint().getHasM());
       this->empty_ = false;
@@ -129,10 +162,10 @@ public:
       this->empty_ = true;
     }
   }
-  LineString(const LineString<T>& line) : Geometry<T>(line) { this->points = line.points; }
+  LineString(const LineString<T, 2>& line) : Geometry<T, 2>(line) { this->points = line.points; }
   ~LineString() {}
 
-  virtual Box<T>* envelope() {
+  virtual Box<T, 2>* envelope() {
     T xmin, ymin, xmax, ymax;
     xmin = firstPoint().getX();
     xmax = firstPoint().getX();
@@ -155,18 +188,18 @@ public:
         ymax = y;
       }
     }
-    return new Box<T>(xmin, ymin, xmax, ymax);
+    return new Box<T, 2>(xmin, ymin, xmax, ymax);
   }
 
   virtual std::string toWKT() { return this->toWKTWithTag("LINESTRING"); }
 
-  Point<T>& firstPoint() { return points.front(); }
+  Point<T, 2>& firstPoint() { return points.front(); }
 
-  Point<T>& lastPoint() { return points.back(); }
+  Point<T, 2>& lastPoint() { return points.back(); }
 
   int npoints() const { return points.size(); }
 
-  Point<T>& pointAt(const int i) { return points[i]; }
+  Point<T, 2>& pointAt(const int i) { return points[i]; }
 
   std::string toPointArrayStr() {
     std::ostringstream oss;
@@ -190,8 +223,8 @@ public:
   }
 
   template <typename U>
-  friend std::ostream& operator<<(std::ostream& os, const LineString<U>& line) {
-    for (const Point<U>& p : line.points) {
+  friend std::ostream& operator<<(std::ostream& os, const LineString<U, 2>& line) {
+    for (const Point<U, 2>& p : line.points) {
       os << p << ",";
     }
     return os;
@@ -199,29 +232,29 @@ public:
 };
 
 template <typename T>
-class LineRing : public LineString<T> {
+class LineRing<T, 2> : public LineString<T, 2> {
 public:
-  LineRing() : LineString<T>() {}
-  LineRing(std::vector<Point<T>>& points) : LineString<T>(points) {
+  LineRing() : LineString<T, 2>() {}
+  LineRing(std::vector<Point<T, 2>>& points) : LineString<T, 2>(points) {
     if (this->firstPoint() != this->lastPoint()) {
       this->points.push_back(this->firstPoint());
     }
   }
-  LineRing(const LineRing<T>& ring) : LineString<T>(ring) {}
+  LineRing(const LineRing<T, 2>& ring) : LineString<T, 2>(ring) {}
   ~LineRing() {}
 
   virtual std::string toWKT() { return this->toWKTWithTag("LINERING"); }
 };
 
 template <typename T>
-class Polygon : public Geometry<T> {
+class Polygon<T, 2> : public Geometry<T, 2> {
 protected:
-  LineRing<T> exterior;
-  std::vector<LineRing<T>> holes;
+  LineRing<T, 2> exterior;
+  std::vector<LineRing<T, 2>> holes;
 
 public:
-  Polygon() : Geometry<T>() {}
-  Polygon(LineRing<T> exterior, std::vector<LineRing<T>>& holes)
+  Polygon() : Geometry<T, 2>() {}
+  Polygon(LineRing<T, 2> exterior, std::vector<LineRing<T, 2>>& holes)
       : exterior(exterior), holes(holes) {
     this->empty_ = this->exterior.empty();
     if (this->exterior.empty() > 0) {
@@ -230,13 +263,13 @@ public:
       this->setHasM(false);
     }
   }
-  Polygon(const Polygon<T>& poly) : Geometry<T>(poly) {
+  Polygon(const Polygon<T, 2>& poly) : Geometry<T, 2>(poly) {
     this->exterior = poly.exterior;
     this->holes = poly.holes;
   }
   ~Polygon() {}
 
-  virtual Box<T>* envelope() { return this->exterior.envelope(); }
+  virtual Box<T, 2>* envelope() { return this->exterior.envelope(); }
   virtual std::string toWKT() {
     std::ostringstream oss;
     if (this->empty()) {
@@ -258,32 +291,32 @@ public:
     return oss.str();
   }
 
-  LineRing<T>& getExterior() { return this->exterior; }
-  std::vector<LineRing<T>>& getHoles() { return this->holes; }
+  LineRing<T, 2>& getExterior() { return this->exterior; }
+  std::vector<LineRing<T, 2>>& getHoles() { return this->holes; }
 };
 
 template <typename T>
-class Box : public Polygon<T> {
+class Box<T, 2> : public Polygon<T, 2> {
 private:
   T xmin, ymin, xmax, ymax;
 
 public:
-  Box(T xmin, T ymin, T xmax, T ymax) : Polygon<T>() {
+  Box(T xmin, T ymin, T xmax, T ymax) : Polygon<T, 2>() {
     this->xmin = xmin;
     this->ymin = ymin;
     this->xmax = xmax;
     this->ymax = ymax;
-    std::vector<Point<T>> pts = {
+    std::vector<Point<T, 2>> pts = {
         {xmin, ymin}, {xmin, ymax}, {xmax, ymax}, {xmax, ymin}, {xmin, ymin}};
 
-    LineRing<T> exterior(pts);
-    std::vector<LineRing<T>> holes(0);
+    LineRing<T, 2> exterior(pts);
+    std::vector<LineRing<T, 2>> holes(0);
     this->exterior = exterior;
     this->holes = holes;
     this->empty_ = exterior.empty();
     this->setHasM(exterior.getHasM());
   }
-  Box(const Box<T>& b) : Polygon<T>(b) {}
+  Box(const Box<T, 2>& b) : Polygon<T, 2>(b) {}
   ~Box() {}
 
   T getXmin() const { return this->xmin; }
@@ -291,9 +324,9 @@ public:
   T getXmax() const { return this->xmax; }
   T getYmax() const { return this->ymax; }
 
-  virtual Box<T>* envelope() { return new Box<T>(*this); }
+  virtual Box<T, 2>* envelope() { return new Box<T, 2>(*this); }
 
-  friend bool operator==(const Box<T>& b1, const Box<T>& b2) {
+  friend bool operator==(const Box<T, 2>& b1, const Box<T, 2>& b2) {
     return utils::dbl_equal(b1.getXmin(), b2.getXmin()) &&
            utils::dbl_equal(b1.getYmin(), b2.getYmin()) &&
            utils::dbl_equal(b1.getXmax(), b2.getXmax()) &&
