@@ -62,23 +62,6 @@ public:
   virtual std::string toWKT() = 0;
 };
 
-// 2D
-
-template <typename T>
-class Point<T, 2>;
-
-template <typename T>
-class LineString<T, 2>;
-
-template <typename T>
-class LineRing<T, 2>;
-
-template <typename T>
-class Polygon<T, 2>;
-
-template <typename T>
-class Box<T, 2>;
-
 template <typename T>
 class Point<T, 2> : public Geometry<T, 2> {
 public:
@@ -161,264 +144,12 @@ private:
 };
 
 template <typename T>
-class LineString<T, 2> : public Geometry<T, 2> {
-protected:
-  std::vector<Point<T, 2>> points;
-
-  std::string toWKTWithTag(std::string tag) {
-    std::ostringstream oss;
-    if (this->empty()) {
-      oss << fmt::format("{} EMPTY", tag);
-    } else {
-      bool hasm = this->firstPoint().getHasM();
-      oss << tag;
-      if (hasm) {
-        oss << " M";
-      }
-      oss << this->toPointArrayStr();
-    }
-    return oss.str();
-  }
-
-public:
-  LineString() : Geometry<T, 2>() {}
-  LineString(std::vector<Point<T, 2>>& points) : points(points) {
-    spdlog::info("LineString<T,2> constructor called");
-    if (!points.empty()) {
-      this->setHasM(this->firstPoint().getHasM());
-      this->empty_ = false;
-    } else {
-      this->empty_ = true;
-    }
-  }
-  LineString(const LineString<T, 2>& line) : Geometry<T, 2>(line) {
-    spdlog::info("LineString<T,2> copy called");
-    this->empty_ = line.empty_;
-    this->srid = line.srid;
-    this->hasm = line.hasm;
-    this->points = line.points;
-  }
-  LineString(LineString<T, 2>&& line) : Geometry<T, 2>(line) {
-    spdlog::info("LineString<T,2> copy called");
-    this->empty_ = line.empty_;
-    this->srid = line.srid;
-    this->hasm = line.hasm;
-    this->points = line.points;
-  }
-  LineString<T, 2>& operator=(const LineString<T, 2>& line) {
-    if (this == &line)
-      return *this;
-    else {
-      Geometry<T, 2>::operator=(line);
-      this->points = line.points;
-      return *this;
-    }
-  }
-  ~LineString() {}
-
-  virtual Box<T, 2>* envelope() {
-    T xmin, ymin, xmax, ymax;
-    xmin = firstPoint().getX();
-    xmax = firstPoint().getX();
-    ymin = firstPoint().getY();
-    ymax = firstPoint().getY();
-
-    for (auto it = (this->points).begin() + 1; it < (this->points).end(); ++it) {
-      T x = it->getX();
-      T y = it->getY();
-      if (x < xmin) {
-        xmin = x;
-      }
-      if (x > xmax) {
-        xmax = x;
-      }
-      if (y < ymin) {
-        ymin = y;
-      }
-      if (y > ymax) {
-        ymax = y;
-      }
-    }
-    return new Box<T, 2>(xmin, ymin, xmax, ymax);
-  }
-
-  virtual std::string toWKT() { return this->toWKTWithTag("LINESTRING"); }
-
-  Point<T, 2>& firstPoint() { return points.front(); }
-
-  Point<T, 2>& lastPoint() { return points.back(); }
-
-  int npoints() const { return points.size(); }
-
-  Point<T, 2>& pointAt(const int i) { return points[i]; }
-
-  std::string toPointArrayStr() {
-    std::ostringstream oss;
-    bool hasm = this->firstPoint().getHasM();
-    oss << "(";
-    int i = 0;
-    for (; i < this->npoints() - 1; ++i) {
-      oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
-      if (hasm) {
-        oss << " " << this->pointAt(i).getM();
-      }
-      oss << ",";
-    }
-    oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
-    if (hasm) {
-      oss << " " << this->pointAt(i).getM();
-    }
-    oss << ")";
-
-    return oss.str();
-  }
-
-  template <typename U>
-  friend std::ostream& operator<<(std::ostream& os, const LineString<U, 2>& line) {
-    for (const Point<U, 2>& p : line.points) {
-      os << p << ",";
-    }
-    return os;
-  }
-};
-
-template <typename T>
-class LineRing<T, 2> : public LineString<T, 2> {
-public:
-  LineRing() : LineString<T, 2>() {}
-  LineRing(std::vector<Point<T, 2>>& points) : LineString<T, 2>(points) {
-    if (this->firstPoint() != this->lastPoint()) {
-      this->points.push_back(this->firstPoint());
-    }
-  }
-  LineRing(const LineRing<T, 2>& ring) : LineString<T, 2>(ring) {}
-  ~LineRing() {}
-
-  virtual std::string toWKT() { return this->toWKTWithTag("LINERING"); }
-};
-
-template <typename T>
-class Polygon<T, 2> : public Geometry<T, 2> {
-protected:
-  LineRing<T, 2> exterior;
-  std::vector<LineRing<T, 2>> holes;
-
-public:
-  Polygon() : Geometry<T, 2>() {}
-  Polygon(LineRing<T, 2> exterior, std::vector<LineRing<T, 2>>& holes)
-      : exterior(exterior), holes(holes) {
-    this->empty_ = this->exterior.empty();
-    if (this->exterior.empty() > 0) {
-      this->setHasM(this->exterior.getHasM());
-    } else {
-      this->setHasM(false);
-    }
-  }
-  Polygon(const Polygon<T, 2>& poly) : Geometry<T, 2>(poly) {
-    this->exterior = poly.exterior;
-    this->holes = poly.holes;
-  }
-  Polygon& operator=(const Polygon& poly) {
-    if (this == &poly) {
-      return *this;
-    } else {
-      Geometry<T, 2>::operator=(poly);
-      this->exterior = poly.exterior;
-      this->holes = poly.holes;
-    }
-  }
-  ~Polygon() {}
-
-  virtual Box<T, 2>* envelope() { return this->exterior.envelope(); }
-  virtual std::string toWKT() {
-    std::ostringstream oss;
-    if (this->empty()) {
-      oss << "POLYGON EMPTY";
-      return oss.str();
-    } else {
-      oss << "POLYGON";
-    }
-    if (this->getHasM()) {
-      oss << " M";
-    }
-    oss << "(";
-    oss << this->exterior.toPointArrayStr();
-    for (auto h : this->holes) {
-      oss << "," << h.toPointArrayStr();
-    }
-    oss << ")";
-
-    return oss.str();
-  }
-
-  LineRing<T, 2>& getExterior() { return this->exterior; }
-  std::vector<LineRing<T, 2>>& getHoles() { return this->holes; }
-};
-
-template <typename T>
-class Box<T, 2> : public Polygon<T, 2> {
-private:
-  T xmin, ymin, xmax, ymax;
-
-public:
-  Box(T xmin, T ymin, T xmax, T ymax) : Polygon<T, 2>() {
-    this->xmin = xmin;
-    this->ymin = ymin;
-    this->xmax = xmax;
-    this->ymax = ymax;
-    std::vector<Point<T, 2>> pts = {
-        {xmin, ymin}, {xmin, ymax}, {xmax, ymax}, {xmax, ymin}, {xmin, ymin}};
-
-    LineRing<T, 2> exterior(pts);
-    std::vector<LineRing<T, 2>> holes(0);
-    this->exterior = exterior;
-    this->holes = holes;
-    this->empty_ = exterior.empty();
-    this->setHasM(exterior.getHasM());
-  }
-  Box(const Box<T, 2>& b) : Polygon<T, 2>(b) {}
-  Box& operator=(const Box<T, 2>* b) { return Polygon<T, 2>::operator=(b); }
-  ~Box() {}
-
-  T getXmin() const { return this->xmin; }
-  T getYmin() const { return this->ymin; }
-  T getXmax() const { return this->xmax; }
-  T getYmax() const { return this->ymax; }
-
-  virtual Box<T, 2>* envelope() { return new Box<T, 2>(*this); }
-
-  friend bool operator==(const Box<T, 2>& b1, const Box<T, 2>& b2) {
-    return utils::dbl_equal(b1.getXmin(), b2.getXmin()) &&
-           utils::dbl_equal(b1.getYmin(), b2.getYmin()) &&
-           utils::dbl_equal(b1.getXmax(), b2.getXmax()) &&
-           utils::dbl_equal(b1.getYmax(), b2.getYmax());
-  }
-};
-
-// 3D
-
-template <typename T>
-class Point<T, 3>;
-
-template <typename T>
-class LineString<T, 3>;
-
-template <typename T>
-class LineRing<T, 3>;
-
-template <typename T>
-class Polygon<T, 3>;
-
-template <typename T>
-class Box<T, 3>;
-
-template <typename T>
 class Point<T, 3> : public Geometry<T, 3> {
 public:
   Point() : x(0), y(0), z(0), m(0) { this->setHasM(false); }
   Point(T x, T y, T z) : x(x), y(y), z(z), m(0) { this->setHasM(false); }
   Point(T x, T y, T z, T m) : x(x), y(y), z(z), m(m) { this->setHasM(true); }
-  Point(const Point<T, 2>& p) : Geometry<T, 2>(p) {
+  Point(const Point<T, 3>& p) : Geometry<T, 3>(p) {
     this->x = p.x;
     this->y = p.y;
     this->z = p.z;
@@ -499,10 +230,10 @@ private:
   T m;
 };
 
-template <typename T>
-class LineString<T, 3> : public Geometry<T, 3> {
+template <typename T, int DIM>
+class LineString : public Geometry<T, DIM> {
 protected:
-  std::vector<Point<T, 3>> points;
+  std::vector<Point<T, DIM>> points;
 
   std::string toWKTWithTag(std::string tag) {
     std::ostringstream oss;
@@ -520,63 +251,142 @@ protected:
   }
 
 public:
-  LineString() : Geometry<T, 3>() {}
-  LineString(std::vector<Point<T, 3>>& points) : points(points) {
+  LineString() : Geometry<T, DIM>() {}
+  LineString(std::vector<Point<T, DIM>>& points) : points(points) {
+    spdlog::trace("LineString<{},{}> constructor called", typeid(T).name(), DIM);
     if (!points.empty()) {
       this->setHasM(this->firstPoint().getHasM());
       this->empty_ = false;
     } else {
-      this->setHasM(true);
       this->empty_ = true;
     }
   }
-  LineString(const LineString<T, 3>& line) : Geometry<T, 3>(line) { this->points = line.points; }
+  LineString(const LineString<T, DIM>& line) : Geometry<T, DIM>(line) {
+    spdlog::trace("LineString<{},{}> copy called", typeid(T).name(), DIM);
+    this->empty_ = line.empty_;
+    this->srid = line.srid;
+    this->hasm = line.hasm;
+    this->points = line.points;
+  }
+  LineString(LineString<T, DIM>&& line) : Geometry<T, DIM>(line) {
+    spdlog::trace("LineString<{},{}> move copy called", typeid(T).name(), DIM);
+    this->empty_ = line.empty_;
+    this->srid = line.srid;
+    this->hasm = line.hasm;
+    this->points = std::move(line.points);
+  }
+  LineString<T, DIM>& operator=(const LineString<T, DIM>& line) {
+    spdlog::trace("LineString<{},{}> operator= called", typeid(T).name(), DIM);
+    if (this == &line)
+      return *this;
+    else {
+      Geometry<T, DIM>::operator=(line);
+      this->points = line.points;
+      return *this;
+    }
+  }
+  LineString<T, DIM>& operator=(const LineString<T, DIM>&& line) {
+    spdlog::trace("LineString<{},{}> move operator= called", typeid(T).name(), DIM);
+    if (this == &line)
+      return *this;
+    else {
+      Geometry<T, DIM>::operator=(line);
+      this->points = std::move(line.points);
+      return *this;
+    }
+  }
   ~LineString() {}
 
-  virtual Box<T, 3>* envelope() {
-    T xmin, ymin, zmin, xmax, ymax, zmax;
-    xmin = firstPoint().getX();
-    xmax = firstPoint().getX();
-    ymin = firstPoint().getY();
-    ymax = firstPoint().getY();
-    zmin = firstPoint().getZ();
-    zmax = firstPoint().getZ();
+  virtual Box<T, DIM>* envelope() {
+    if (DIM == 2) {
+      T xmin, ymin, xmax, ymax;
+      Point<T, 2>& p = reinterpret_cast<Point<T, 2>&>(firstPoint());
+      xmin = p.getX();
+      xmax = p.getX();
+      ymin = p.getY();
+      ymax = p.getY();
 
-    for (auto it = (this->points).begin() + 1; it < (this->points).end(); ++it) {
-      T x = it->getX();
-      T y = it->getY();
-      T z = it->getZ();
-      if (x < xmin) {
-        xmin = x;
+      std::vector<Point<T, DIM>>& ps = this->points;
+      std::vector<Point<T, 2>>& p2s = reinterpret_cast<std::vector<Point<T, 2>>&>(ps);
+
+      for (auto it = p2s.begin() + 1; it < p2s.end(); ++it) {
+        T x = it->getX();
+        T y = it->getY();
+        if (x < xmin) {
+          xmin = x;
+        }
+        if (x > xmax) {
+          xmax = x;
+        }
+        if (y < ymin) {
+          ymin = y;
+        }
+        if (y > ymax) {
+          ymax = y;
+        }
       }
-      if (x > xmax) {
-        xmax = x;
+      return new Box<T, 2>(xmin, ymin, xmax, ymax);
+    } else if (DIM == 3) {
+      T xmin, ymin, xmax, ymax, zmin, zmax;
+      Point<T, 3>& p = reinterpret_cast<Point<T, 3>&>(firstPoint());
+      xmin = p.getX();
+      xmax = p.getX();
+      ymin = p.getY();
+      ymax = p.getY();
+      zmin = p.getZ();
+      zmax = p.getZ();
+
+      std::vector<Point<T, DIM>>& ps = this->points;
+      std::vector<Point<T, 3>>& p3s = reinterpret_cast<std::vector<Point<T, 3>>&>(ps);
+
+      for (auto it = p3s.begin() + 1; it < p3s.end(); ++it) {
+        T x = it->getX();
+        T y = it->getY();
+        T z = it->getZ();
+        if (x < xmin) {
+          xmin = x;
+        }
+        if (x > xmax) {
+          xmax = x;
+        }
+        if (y < ymin) {
+          ymin = y;
+        }
+        if (y > ymax) {
+          ymax = y;
+        }
+        if (z < zmin) {
+          zmin = z;
+        }
+        if (z > zmax) {
+          zmax = z;
+        }
       }
-      if (y < ymin) {
-        ymin = y;
-      }
-      if (y > ymax) {
-        ymax = y;
-      }
-      if (z < zmin) {
-        zmin = z;
-      }
-      if (z > zmax) {
-        zmax = z;
-      }
+      return reinterpret_cast<Box<T, DIM>*>(new Box<T, 3>(xmin, ymin, zmin, xmax, ymax, zmax));
+    } else {
+      spdlog::error("invalid dim {}, dim should be 2 or 3;", DIM);
+      return nullptr;
     }
-    return new Box<T, 3>(xmin, ymin, zmin, xmax, ymax, zmax);
   }
 
-  virtual std::string toWKT() { return this->toWKTWithTag("LINESTRING Z"); }
+  virtual std::string toWKT() {
+    if (DIM == 2)
+      return this->toWKTWithTag("LINESTRING");
+    else if (DIM == 3) {
+      return this->toWKTWithTag("LINESTRING Z");
+    } else {
+      spdlog::error("invalid dim {}, dim should be 2 or 3;", DIM);
+      return "";
+    }
+  }
 
-  Point<T, 3>& firstPoint() { return points.front(); }
+  Point<T, DIM>& firstPoint() { return points.front(); }
 
-  Point<T, 3>& lastPoint() { return points.back(); }
+  Point<T, DIM>& lastPoint() { return points.back(); }
 
   int npoints() const { return points.size(); }
 
-  Point<T, 3>& pointAt(const int i) { return points[i]; }
+  Point<T, DIM>& pointAt(const int i) { return points[i]; }
 
   std::string toPointArrayStr() {
     std::ostringstream oss;
@@ -584,15 +394,13 @@ public:
     oss << "(";
     int i = 0;
     for (; i < this->npoints() - 1; ++i) {
-      oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY() << " "
-          << this.pointAt(i).getZ();
+      oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
       if (hasm) {
         oss << " " << this->pointAt(i).getM();
       }
       oss << ",";
     }
-    oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY() << " "
-        << this->pointAt(i).getZ();
+    oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
     if (hasm) {
       oss << " " << this->pointAt(i).getM();
     }
@@ -601,39 +409,56 @@ public:
     return oss.str();
   }
 
-  template <typename U>
-  friend std::ostream& operator<<(std::ostream& os, const LineString<U, 3>& line) {
-    for (const Point<U, 2>& p : line.points) {
+  template <typename U, int D>
+  friend std::ostream& operator<<(std::ostream& os, const LineString<U, D>& line) {
+    for (const Point<U, D>& p : line.points) {
       os << p << ",";
     }
     return os;
   }
 };
 
-template <typename T>
-class LineRing<T, 3> : public LineString<T, 3> {
+template <typename T, int DIM>
+class LineRing : public LineString<T, DIM> {
 public:
-  LineRing() : LineString<T, 3>() {}
-  LineRing(std::vector<Point<T, 3>>& points) : LineString<T, 3>(points) {
+  LineRing() : LineString<T, DIM>() {}
+  LineRing(std::vector<Point<T, DIM>>& points) : LineString<T, DIM>(points) {
     if (this->firstPoint() != this->lastPoint()) {
       this->points.push_back(this->firstPoint());
     }
   }
-  LineRing(const LineRing<T, 3>& ring) : LineString<T, 3>(ring) {}
+  LineRing(const LineRing<T, DIM>& ring) : LineString<T, DIM>(ring) {}
+  LineRing<T, DIM>& operator=(const LineRing<T, DIM>& ring) {
+    LineString<T, DIM>::operator=(ring);
+    return *this;
+  }
+  LineRing<T, DIM>& operator=(const LineRing<T, DIM>&& ring) {
+    LineString<T, DIM>::operator=(std::move(ring));
+    return *this;
+  }
   ~LineRing() {}
 
-  virtual std::string toWKT() { return this->toWKTWithTag("LINERING Z"); }
+  virtual std::string toWKT() {
+    if (DIM == 2) {
+      return this->toWKTWithTag("LINERING");
+    } else if (DIM == 3) {
+      return this->toWKTWithTag("LINERING Z");
+    } else {
+      spdlog::error("invalid dim {}, dim should be 2 or 3;", DIM);
+      return "";
+    }
+  }
 };
 
-template <typename T>
-class Polygon<T, 3> : public Geometry<T, 3> {
+template <typename T, int DIM>
+class Polygon : public Geometry<T, DIM> {
 protected:
-  LineRing<T, 3> exterior;
-  std::vector<LineRing<T, 3>> holes;
+  LineRing<T, DIM> exterior;
+  std::vector<LineRing<T, DIM>> holes;
 
 public:
-  Polygon() : Geometry<T, 3>() {}
-  Polygon(LineRing<T, 3> exterior, std::vector<LineRing<T, 3>>& holes)
+  Polygon() : Geometry<T, DIM>() {}
+  Polygon(LineRing<T, DIM> exterior, std::vector<LineRing<T, DIM>>& holes)
       : exterior(exterior), holes(holes) {
     this->empty_ = this->exterior.empty();
     if (this->exterior.empty() > 0) {
@@ -642,20 +467,44 @@ public:
       this->setHasM(false);
     }
   }
-  Polygon(const Polygon<T, 3>& poly) : Geometry<T, 3>(poly) {
+  Polygon(const Polygon<T, DIM>& poly) : Geometry<T, DIM>(poly) {
     this->exterior = poly.exterior;
     this->holes = poly.holes;
   }
+  Polygon<T, DIM>& operator=(const Polygon<T, DIM>& poly) {
+    if (this == &poly) {
+      return *this;
+    } else {
+      Geometry<T, DIM>::operator=(poly);
+      this->exterior = poly.exterior;
+      this->holes = poly.holes;
+    }
+  }
+  Polygon<T, DIM>& operator=(const Polygon<T, DIM>&& poly) {
+    if (this == &poly) {
+      return *this;
+    } else {
+      Geometry<T, DIM>::operator=(poly);
+      this->exterior = std::move(poly.exterior);
+      this->holes = std::move(poly.holes);
+    }
+  }
   ~Polygon() {}
 
-  virtual Box<T, 3>* envelope() { return this->exterior.envelope(); }
+  virtual Box<T, DIM>* envelope() { return this->exterior.envelope(); }
   virtual std::string toWKT() {
     std::ostringstream oss;
     if (this->empty()) {
       oss << "POLYGON EMPTY";
       return oss.str();
-    } else {
+    }
+    if (DIM == 2) {
+      oss << "POLYGON";
+    } else if (DIM == 3) {
       oss << "POLYGON Z";
+    } else {
+      spdlog::error("invalid dim {}, dim should be 2 or 3;", DIM);
+      return "";
     }
     if (this->getHasM()) {
       oss << " M";
@@ -670,8 +519,48 @@ public:
     return oss.str();
   }
 
-  LineRing<T, 3>& getExterior() { return this->exterior; }
-  std::vector<LineRing<T, 3>>& getHoles() { return this->holes; }
+  LineRing<T, DIM>& getExterior() { return this->exterior; }
+  std::vector<LineRing<T, DIM>>& getHoles() { return this->holes; }
+};
+
+template <typename T>
+class Box<T, 2> : public Polygon<T, 2> {
+private:
+  T xmin, ymin, xmax, ymax;
+
+public:
+  Box(T xmin, T ymin, T xmax, T ymax) : Polygon<T, 2>() {
+    this->xmin = xmin;
+    this->ymin = ymin;
+    this->xmax = xmax;
+    this->ymax = ymax;
+    std::vector<Point<T, 2>> pts = {
+        {xmin, ymin}, {xmin, ymax}, {xmax, ymax}, {xmax, ymin}, {xmin, ymin}};
+
+    LineRing<T, 2> exterior(pts);
+    std::vector<LineRing<T, 2>> holes(0);
+    this->exterior = std::move(exterior);
+    this->holes = std::move(holes);
+    this->empty_ = exterior.empty();
+    this->setHasM(exterior.getHasM());
+  }
+  Box(const Box<T, 2>& b) : Polygon<T, 2>(b) {}
+  Box& operator=(const Box<T, 2>* b) { return Polygon<T, 2>::operator=(b); }
+  ~Box() {}
+
+  T getXmin() const { return this->xmin; }
+  T getYmin() const { return this->ymin; }
+  T getXmax() const { return this->xmax; }
+  T getYmax() const { return this->ymax; }
+
+  virtual Box<T, 2>* envelope() { return new Box<T, 2>(*this); }
+
+  friend bool operator==(const Box<T, 2>& b1, const Box<T, 2>& b2) {
+    return utils::dbl_equal(b1.getXmin(), b2.getXmin()) &&
+           utils::dbl_equal(b1.getYmin(), b2.getYmin()) &&
+           utils::dbl_equal(b1.getXmax(), b2.getXmax()) &&
+           utils::dbl_equal(b1.getYmax(), b2.getYmax());
+  }
 };
 
 // TODO box<T,3> is a cube

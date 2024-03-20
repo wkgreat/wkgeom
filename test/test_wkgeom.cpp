@@ -1,8 +1,11 @@
 #include <catch2/catch_all.hpp>
 
+#include <spdlog/spdlog.h>
 #include "../wkgeom/wkgeom.h"
 
 TEST_CASE("point init", "[point]") {
+  spdlog::set_level(spdlog::level::trace);
+
   const double X = 1.0;
   const double Y = 2.0;
   const double M = 3.0;
@@ -16,6 +19,8 @@ TEST_CASE("point init", "[point]") {
 }
 
 TEST_CASE("point compare", "[point]") {
+  spdlog::set_level(spdlog::level::trace);
+
   wk::wkgeom::Point<double, 2> p1(1.0, 2.0, 3.0);
   wk::wkgeom::Point<double, 2> p2(1.0, 2.0, 3.0);
   wk::wkgeom::Point<double, 2> p3(4.0, 5.0, 6.0);
@@ -26,6 +31,8 @@ TEST_CASE("point compare", "[point]") {
 }
 
 TEST_CASE("linestring", "[linestring]") {
+  spdlog::set_level(spdlog::level::trace);
+
   std::vector<wk::wkgeom::Point<double, 2>> points(5, wk::wkgeom::Point<double, 2>());
 
   points[0].setXYM(0, 1, 2);
@@ -42,6 +49,8 @@ TEST_CASE("linestring", "[linestring]") {
 }
 
 TEST_CASE("linering", "[linering]") {
+  spdlog::set_level(spdlog::level::trace);
+
   std::vector<wk::wkgeom::Point<double, 2>> points(5, wk::wkgeom::Point<double, 2>());
 
   points[0].setXYM(0, 1, 2);
@@ -59,6 +68,8 @@ TEST_CASE("linering", "[linering]") {
 }
 
 TEST_CASE("polygon", "[polygon]") {
+  spdlog::set_level(spdlog::level::trace);
+
   std::vector<wk::wkgeom::Point<double, 2>> points(5, wk::wkgeom::Point<double, 2>());
 
   points[0].setXYM(0, 1, 2);
@@ -75,6 +86,8 @@ TEST_CASE("polygon", "[polygon]") {
 }
 
 TEST_CASE("box", "[box]") {
+  spdlog::set_level(spdlog::level::trace);
+
   wk::wkgeom::Box<double, 2> box(117.0, 32.0, 118.0, 33.0);
 
   wk::wkgeom::LineRing<double, 2> exterior = box.getExterior();
@@ -94,6 +107,8 @@ TEST_CASE("box", "[box]") {
 }
 
 TEST_CASE("envelope", "[envelope]") {
+  spdlog::set_level(spdlog::level::trace);
+
   std::vector<wk::wkgeom::Point<double, 2>> points{{117, 32}, {118, 33}};
   wk::wkgeom::LineString<double, 2> line(points);
   wk::wkgeom::Box<double, 2>* b = line.envelope();
@@ -105,6 +120,8 @@ TEST_CASE("envelope", "[envelope]") {
 }
 
 TEST_CASE("3D Point", "[point3d]") {
+  spdlog::set_level(spdlog::level::trace);
+
   wk::wkgeom::Point<double, 3> p(117, 32, 100);
   REQUIRE(wk::wkgeom::utils::dbl_equal(p.getX(), 117));
   REQUIRE(wk::wkgeom::utils::dbl_equal(p.getY(), 32));
