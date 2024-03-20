@@ -103,3 +103,10 @@ TEST_CASE("envelope", "[envelope]") {
 
   std::cout << ">>>>> " << b2.toWKT() << std::endl;
 }
+
+TEST_CASE("3D Point", "[point3d]") {
+  wk::wkgeom::Point<double, 3> p(117, 32, 100);
+  REQUIRE(wk::wkgeom::utils::dbl_equal(p.getX(), 117));
+  REQUIRE(wk::wkgeom::utils::dbl_equal(p.getY(), 32));
+  REQUIRE(wk::wkgeom::utils::dbl_equal(p.getZ(), 100));
+}

@@ -3,6 +3,7 @@ add_executable(tests test_wkgeom.cpp)
 
 target_link_libraries(tests 
     PRIVATE Catch2::Catch2WithMain
+    PRIVATE fmt::fmt
     PRIVATE wkgeom
 )
 
