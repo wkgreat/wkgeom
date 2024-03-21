@@ -127,3 +127,30 @@ TEST_CASE("3D Point", "[point3d]") {
   REQUIRE(wk::wkgeom::utils::dbl_equal(p.getY(), 32));
   REQUIRE(wk::wkgeom::utils::dbl_equal(p.getZ(), 100));
 }
+
+TEST_CASE("linering 3D", "[linering3d]") {
+  spdlog::set_level(spdlog::level::trace);
+
+  std::vector<wk::wkgeom::Point<double, 3>> points(5, wk::wkgeom::Point<double, 3>());
+
+  points[0].setXYZM(0, 1, 2, 10);
+  points[1].setXYZM(1, 2, 3, 10);
+  points[2].setXYZM(3, 4, 5, 10);
+  points[3].setXYZM(4, 5, 6, 10);
+  points[4].setXYZM(5, 6, 7, 10);
+
+  wk::wkgeom::LineString<double, 3> line(points);
+
+  spdlog::trace("LineString<double,3> WKT : {}", line.toWKT());
+
+  wk::wkgeom::Box<double, 3>* box3d = line.envelope();
+
+  REQUIRE(box3d->getXmin() == 0);
+  REQUIRE(box3d->getYmin() == 1);
+  REQUIRE(box3d->getZmin() == 2);
+  REQUIRE(box3d->getXmax() == 5);
+  REQUIRE(box3d->getYmax() == 6);
+  REQUIRE(box3d->getZmax() == 7);
+
+  delete box3d;
+}

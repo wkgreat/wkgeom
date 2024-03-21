@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/test/tests",
             "args": [
-                "\"box\""
+                "\"linering 3D\""
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/test/",

@@ -4,6 +4,7 @@
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "wkgeom_utils.h"
@@ -251,6 +252,8 @@ protected:
   }
 
 public:
+  // using toPointStrFunc = void (*)(std::ostringstream&, Point<T, DIM>&, bool hasM);
+
   LineString() : Geometry<T, DIM>() {}
   LineString(std::vector<Point<T, DIM>>& points) : points(points) {
     spdlog::trace("LineString<{},{}> constructor called", typeid(T).name(), DIM);
@@ -325,7 +328,7 @@ public:
           ymax = y;
         }
       }
-      return new Box<T, 2>(xmin, ymin, xmax, ymax);
+      return reinterpret_cast<Box<T, DIM>*>(new Box<T, 2>(xmin, ymin, xmax, ymax));
     } else if (DIM == 3) {
       T xmin, ymin, xmax, ymax, zmin, zmax;
       Point<T, 3>& p = reinterpret_cast<Point<T, 3>&>(firstPoint());
@@ -388,34 +391,71 @@ public:
 
   Point<T, DIM>& pointAt(const int i) { return points[i]; }
 
+  // toPointStrFunc getToPointStrFunc() {
+  //   if (DIM == 2) {
+  //     return [](std::ostringstream& oss, Point<T, DIM>& p, bool hasM) {
+  //       Point<T, 2>& _p = reinterpret_cast<Point<T, 2>&>(p);
+  //       oss << _p.getX() << " " << _p.getY();
+  //       if (hasM) {
+  //         oss << _p.getM();
+  //       }
+  //     };
+  //   } else if (DIM == 3) {
+  //     return [](std::ostringstream& oss, Point<T, DIM>& p, bool hasM) {
+  //       Point<T, 3>& _p = reinterpret_cast<Point<T, 3>&>(p);
+  //       oss << _p.getX() << " " << _p.getY() << " " << _p.getZ();
+  //       if (hasM) {
+  //         oss << _p.getM();
+  //       }
+  //     };
+  //   } else {
+  //     spdlog::error("ERROR DIM");
+  //   }
+  //   return nullptr;
+  // }
+
   std::string toPointArrayStr() {
     std::ostringstream oss;
     bool hasm = this->firstPoint().getHasM();
     oss << "(";
     int i = 0;
-    for (; i < this->npoints() - 1; ++i) {
-      oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
-      if (hasm) {
-        oss << " " << this->pointAt(i).getM();
+    if (DIM == 2) {
+      const Point<T, 2>* p;
+      for (; i < this->npoints() - 1; ++i) {
+        p = reinterpret_cast<Point<T, 2>*>(&this->pointAt(i));
+        oss << p->getX() << " " << p->getY();
+        if (hasm) {
+          oss << " " << p->getM();
+        }
+        oss << ",";
       }
-      oss << ",";
+      oss << p->getX() << " " << p->getY();
+      if (hasm) {
+        oss << " " << p->getM();
+      }
+      oss << ")";
+    } else if (DIM == 3) {
+      const Point<T, 3>* p;
+      for (; i < this->npoints() - 1; ++i) {
+        p = reinterpret_cast<Point<T, 3>*>(&this->pointAt(i));
+        oss << p->getX() << " " << p->getY() << " " << p->getZ();
+        if (hasm) {
+          oss << " " << p->getM();
+        }
+        oss << ",";
+      }
+      oss << p->getX() << " " << p->getY() << " " << p->getZ();
+      if (hasm) {
+        oss << " " << p->getM();
+      }
+      oss << ")";
     }
-    oss << this->pointAt(i).getX() << " " << this->pointAt(i).getY();
-    if (hasm) {
-      oss << " " << this->pointAt(i).getM();
-    }
-    oss << ")";
 
     return oss.str();
   }
 
   template <typename U, int D>
-  friend std::ostream& operator<<(std::ostream& os, const LineString<U, D>& line) {
-    for (const Point<U, D>& p : line.points) {
-      os << p << ",";
-    }
-    return os;
-  }
+  friend std::ostream& operator<<(std::ostream& os, const LineString<U, D>& line);
 };
 
 template <typename T, int DIM>
