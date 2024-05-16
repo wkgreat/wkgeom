@@ -154,3 +154,50 @@ TEST_CASE("linering 3D", "[linering3d]") {
 
   delete box3d;
 }
+
+TEST_CASE("stpoint2", "[stpoint2]") {
+  spdlog::set_level(spdlog::level::trace);
+
+  wk::wkgeom::Point<double, 2> p2d(1, 2);
+  wk::wkgeom::STPoint<double, 2> p(0, p2d);
+  wk::wkgeom::STBox<double, 2>* b = p.envelope();
+  spdlog::trace("stbox<double,2> {},{},{},{}", b->getXmin(), b->getXmax(), b->getYmin(),
+                b->getYmax());
+  delete b;
+}
+
+TEST_CASE("stpoint3", "[stpoint3]") {
+  spdlog::set_level(spdlog::level::trace);
+
+  wk::wkgeom::Point<double, 3> p3d(1, 2, 3);
+  wk::wkgeom::STPoint<double, 3> p(0, p3d);
+  wk::wkgeom::STBox<double, 3>* b = p.envelope();
+  spdlog::trace("stbox<double,3> {},{},{},{},{},{}", b->getXmin(), b->getXmax(), b->getYmin(),
+                b->getYmax(), b->getZmin(), b->getZmax());
+  delete b;
+}
+
+TEST_CASE("trajectory", "[TRAJECTORY]") {
+  spdlog::set_level(spdlog::level::trace);
+
+  std::vector<wk::wkgeom::STPoint<double, 2>> points(5, wk::wkgeom::STPoint<double, 2>());
+
+  points[0].setT(0);
+  points[0].setXYM(0, 0, 0);
+
+  points[1].setT(1);
+  points[1].setXYM(1, 1, 1);
+
+  points[2].setT(2);
+  points[2].setXYM(2, 2, 2);
+
+  points[3].setT(3);
+  points[3].setXYM(30, 3, 3);
+
+  points[4].setT(4);
+  points[4].setXYM(4, 4, 4);
+
+  wk::wkgeom::Trajectory<double, 2> traj(points);
+
+  // spdlog::trace("TRAJECTORY: {}", traj);
+}

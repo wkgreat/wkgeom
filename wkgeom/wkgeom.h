@@ -11,6 +11,8 @@
 
 namespace wk ::wkgeom {
 
+typedef uint64_t epoch_t;
+
 template <typename T, int DIM>
 class Geometry;
 
@@ -94,18 +96,18 @@ public:
   T getX() const { return this->x; }
   T getY() const { return this->y; }
   T getM() const { return this->getHasM() ? this->m : 0; }
-  void setX(int x) { this->x = x; }
-  void setY(int y) { this->y = y; }
-  void setM(int m) {
+  void setX(T x) { this->x = x; }
+  void setY(T y) { this->y = y; }
+  void setM(T m) {
     this->setHasM(true);
     this->m = m;
   }
-  void setXY(int x, int y) {
+  void setXY(T x, T y) {
     this->x = x;
     this->y = y;
     this->setSrid(0);
   }
-  void setXYM(int x, int y, int m) {
+  void setXYM(T x, T y, T m) {
     this->x = x;
     this->y = y;
     this->m = m;
@@ -252,14 +254,13 @@ protected:
   }
 
 public:
-  // using toPointStrFunc = void (*)(std::ostringstream&, Point<T, DIM>&, bool hasM);
-
   LineString() : Geometry<T, DIM>() {}
   LineString(std::vector<Point<T, DIM>>& points) : points(points) {
     spdlog::trace("LineString<{},{}> constructor called", typeid(T).name(), DIM);
     if (!points.empty()) {
       this->setHasM(this->firstPoint().getHasM());
       this->empty_ = false;
+      this->setSrid(this->firstPoint().getSrid());
     } else {
       this->empty_ = true;
     }
@@ -390,29 +391,6 @@ public:
   int npoints() const { return points.size(); }
 
   Point<T, DIM>& pointAt(const int i) { return points[i]; }
-
-  // toPointStrFunc getToPointStrFunc() {
-  //   if (DIM == 2) {
-  //     return [](std::ostringstream& oss, Point<T, DIM>& p, bool hasM) {
-  //       Point<T, 2>& _p = reinterpret_cast<Point<T, 2>&>(p);
-  //       oss << _p.getX() << " " << _p.getY();
-  //       if (hasM) {
-  //         oss << _p.getM();
-  //       }
-  //     };
-  //   } else if (DIM == 3) {
-  //     return [](std::ostringstream& oss, Point<T, DIM>& p, bool hasM) {
-  //       Point<T, 3>& _p = reinterpret_cast<Point<T, 3>&>(p);
-  //       oss << _p.getX() << " " << _p.getY() << " " << _p.getZ();
-  //       if (hasM) {
-  //         oss << _p.getM();
-  //       }
-  //     };
-  //   } else {
-  //     spdlog::error("ERROR DIM");
-  //   }
-  //   return nullptr;
-  // }
 
   std::string toPointArrayStr() {
     std::ostringstream oss;
@@ -647,6 +625,232 @@ public:
            utils::dbl_equal(b1.getXmax(), b2.getXmax()) &&
            utils::dbl_equal(b1.getYmax(), b2.getYmax()) &&
            utils::dbl_equal(b1.getZmax(), b2.getZmax());
+  }
+};
+
+template <typename T, int DIM>
+class STBox : public Box<T, DIM> {
+private:
+  epoch_t tmin, tmax;
+
+public:
+  STBox(epoch_t tmin, epoch_t tmax, Box<T, DIM>& b) : Box<T, DIM>(b) {
+    this->tmin = tmin;
+    this->tmax = tmax;
+  }
+  STBox(const STBox<T, DIM>& b) : Box<T, DIM>(b) {
+    this->tmin = b.tmin;
+    this->tmax = b.tmax;
+  }
+  STBox& operator=(const STBox<T, DIM>& b) {
+    Box<T, DIM>::operator=(b);
+    if (this == &b) {
+      return *this;
+    } else {
+      this->tmin = b.tmin;
+      this->tmax = b.tmax;
+      return *this;
+    }
+  }
+  ~STBox() {}
+  STBox<T, DIM>* envelope() {
+    STBox<T, DIM>* b = new STBox<T, DIM>(*this);
+    return b;
+  };
+  std::string toWKT() { return ""; };
+};
+
+// Spatio-Temporal Geometry
+
+template <typename T, int DIM>
+class STPoint : public Point<T, DIM> {};
+
+template <typename T>
+class STPoint<T, 2> : public Point<T, 2> {
+private:
+  epoch_t t;
+
+public:
+  STPoint() : Point<T, 2>(), t(0) {}
+  STPoint(epoch_t t, Point<T, 2> p) : Point<T, 2>(p), t(t) {}
+  STPoint(const STPoint<T, 2>& p) : Point<T, 2>(p), t(p.t) {}
+  STPoint& operator=(const STPoint<T, 2>& p) {
+    Point<T, 2>::operator=(p);
+    if (this == &p) {
+      return *this;
+    } else {
+      this->t = p->t;
+      return *this;
+    }
+  }
+  ~STPoint() {}
+  epoch_t getT() const { return t; }
+  void setT(epoch_t t) { this->t = t; }
+  STBox<T, 2>* envelope() {
+    Point<T, 2> p(this->getX(), this->getY());
+    return reinterpret_cast<STBox<T, 2>*>(new STBox<T, 2>(this->t, this->t, *p.envelope()));
+  };
+  std::string toWKT() { return ""; /*TODO*/ };
+};
+
+template <typename T>
+class STPoint<T, 3> : public Point<T, 3> {
+private:
+  epoch_t t;
+
+public:
+  STPoint() : Point<T, 3>(), t(0) {}
+  STPoint(epoch_t t, Point<T, 3> p) : Point<T, 3>(p), t(t) {}
+  STPoint(const STPoint<T, 3>& p) : Point<T, 3>(p), t(p.t) {}
+  STPoint& operator=(const STPoint<T, 3>& p) {
+    Point<T, 3>::operator=(p);
+    if (this == &p) {
+      return *this;
+    } else {
+      this->t = p->t;
+      return *this;
+    }
+  }
+  ~STPoint() {}
+  epoch_t getT() const { return t; }
+  void setT(epoch_t t) { this->t = t; }
+  STBox<T, 3>* envelope() {
+    Point<T, 3> p(this->getX(), this->getY(), this->getZ());
+    return reinterpret_cast<STBox<T, 3>*>(new STBox<T, 3>(this->t, this->t, *p.envelope()));
+  };
+  std::string toWKT() { return ""; /*TODO*/ };
+};
+
+template <typename T, int DIM>
+class Trajectory : public Geometry<T, DIM> {
+protected:
+  std::vector<STPoint<T, DIM>> points;
+
+public:
+  Trajectory(std::vector<STPoint<T, DIM>>& points) : points(points) {
+    if (!points.empty()) {
+      this->empty_ = false;
+      this->setHasM(this->firstPoint().getHasM());
+      this->setSrid(this->firstPoint().getSrid());
+    } else {
+      this->empty_ = true;
+    }
+  }
+  Trajectory(const Trajectory& traj) {
+    this->points = traj.points;
+    this->empty_ = traj.empty_;
+    this->setHasM(traj.getHasM());
+    this->setSrid(traj.getSrid());
+  }
+  Trajectory& operator=(const Trajectory& traj) {
+    if (this == &traj) {
+      return *this;
+    } else {
+      this->points = traj.points;
+      this->empty_ = traj.empty_;
+      this->setHasM(traj.getHasM());
+      this->setSrid(traj.getSrid());
+      return *this;
+    }
+  }
+  ~Trajectory() {}
+  std::string toWKT() { return ""; };
+  STPoint<T, DIM>& firstPoint() { return points.front(); }
+  STPoint<T, DIM>& lastPoint() { return points.end(); }
+
+  STBox<T, DIM>* envelope() {
+    if (DIM == 2) {
+      epoch_t tmin, tmax;
+      T xmin, ymin, xmax, ymax;
+      STPoint<T, 2>& p = reinterpret_cast<STPoint<T, 2>&>(firstPoint());
+      tmin = p.getT();
+      tmax = p.getT();
+      xmin = p.getX();
+      xmax = p.getX();
+      ymin = p.getY();
+      ymax = p.getY();
+
+      std::vector<STPoint<T, DIM>>& ps = this->points;
+      std::vector<STPoint<T, 2>>& p2s = reinterpret_cast<std::vector<STPoint<T, 2>>&>(ps);
+
+      for (auto it = p2s.begin() + 1; it < p2s.end(); ++it) {
+        epoch_t t = it->getT();
+        T x = it->getX();
+        T y = it->getY();
+        if (t < tmin) {
+          tmin = t;
+        }
+        if (t > tmax) {
+          tmax = t;
+        }
+        if (x < xmin) {
+          xmin = x;
+        }
+        if (x > xmax) {
+          xmax = x;
+        }
+        if (y < ymin) {
+          ymin = y;
+        }
+        if (y > ymax) {
+          ymax = y;
+        }
+      }
+      Box<T, 2> b(xmin, ymin, xmax, ymax);
+      return reinterpret_cast<STBox<T, DIM>*>(new STBox<T, 2>(tmin, tmax, b));
+
+    } else if (DIM == 3) {
+      epoch_t tmin, tmax;
+      T xmin, ymin, xmax, ymax, zmin, zmax;
+      STPoint<T, 3>& p = reinterpret_cast<STPoint<T, 3>&>(firstPoint());
+      tmin = p.getT();
+      tmax = p.getT();
+      xmin = p.getX();
+      xmax = p.getX();
+      ymin = p.getY();
+      ymax = p.getY();
+      zmin = p.getZ();
+      zmax = p.getZ();
+
+      std::vector<STPoint<T, DIM>>& ps = this->points;
+      std::vector<STPoint<T, 3>>& p3s = reinterpret_cast<std::vector<STPoint<T, 3>>&>(ps);
+
+      for (auto it = p3s.begin() + 1; it < p3s.end(); ++it) {
+        epoch_t t = it->getT();
+        T x = it->getX();
+        T y = it->getY();
+        T z = it->getZ();
+        if (t < tmin) {
+          tmin = t;
+        }
+        if (t > tmax) {
+          tmax = t;
+        }
+        if (x < xmin) {
+          xmin = x;
+        }
+        if (x > xmax) {
+          xmax = x;
+        }
+        if (y < ymin) {
+          ymin = y;
+        }
+        if (y > ymax) {
+          ymax = y;
+        }
+        if (z < zmin) {
+          zmin = z;
+        }
+        if (z > zmax) {
+          zmax = z;
+        }
+      }
+      Box<T, 3> b(xmin, ymin, zmin, xmax, ymax, zmax);
+      return reinterpret_cast<STBox<T, DIM>*>(new STBox<T, 3>(tmin, tmax, b));
+    } else {
+      spdlog::error("invalid dim {}, dim should be 2 or 3;", DIM);
+      return nullptr;
+    }
   }
 };
 
